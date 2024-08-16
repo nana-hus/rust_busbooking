@@ -1,7 +1,3 @@
-Sure, here's a detailed README file for your code, explaining its structure and functionality:
-
----
-
 # Bus Booking Backend
 
 ## Overview
