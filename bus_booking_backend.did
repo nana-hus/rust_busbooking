@@ -1,0 +1,81 @@
+type AddPassengerToRoutePayload = record {
+  route_id : nat64;
+  passenger_id : nat64;
+};
+type Admin = record {
+  id : nat64;
+  name : text;
+  created_at : nat64;
+  email : text;
+};
+type AdminPayload = record { name : text; email : text };
+type Booking = record {
+  id : nat64;
+  route_id : nat64;
+  created_at : nat64;
+  passenger_id : nat64;
+  amount : float64;
+};
+type BookingPayload = record {
+  route_id : nat64;
+  passenger_id : nat64;
+  amount : float64;
+};
+type Error = variant {
+  EmptyFields : record { msg : text };
+  NotRoutePassenger : record { msg : text };
+  NotFound : record { msg : text };
+  UnAuthorized : record { msg : text };
+  AlreadyExists : record { msg : text };
+  InvalidName : record { msg : text };
+  InvalidEmail : record { msg : text };
+};
+type Passenger = record {
+  id : nat64;
+  name : text;
+  created_at : nat64;
+  email : text;
+  points : nat64;
+};
+type Proposal = record {
+  id : nat64;
+  route_id : nat64;
+  description : text;
+  created_at : nat64;
+  votes_for : nat64;
+  proposer_id : nat64;
+  votes_against : nat64;
+};
+type ProposalPayload = record {
+  route_id : nat64;
+  description : text;
+  proposer_id : nat64;
+};
+type Result = variant { Ok; Err : Error };
+type Result_1 = variant { Ok : Booking; Err : Error };
+type Result_2 = variant { Ok : Admin; Err : Error };
+type Result_3 = variant { Ok : Passenger; Err : Error };
+type Result_4 = variant { Ok : Route; Err : Error };
+type Result_5 = variant { Ok : Proposal; Err : Error };
+type Route = record {
+  id : nat64;
+  admin_id : text;
+  name : text;
+  created_at : nat64;
+  passengers : vec text;
+};
+type RoutePayload = record { admin_id : text; name : text };
+type VotePayload = record {
+  vote : bool;
+  proposal_id : nat64;
+  passenger_id : nat64;
+};
+service : {
+  add_passenger_to_route : (AddPassengerToRoutePayload) -> (Result);
+  book_route : (BookingPayload) -> (Result_1);
+  create_admin : (AdminPayload) -> (Result_2);
+  create_passenger : (AdminPayload) -> (Result_3);
+  create_route : (RoutePayload) -> (Result_4);
+  propose_route : (ProposalPayload) -> (Result_5);
+  vote_on_proposal : (VotePayload) -> (Result);
+}

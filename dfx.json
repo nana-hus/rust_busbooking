@@ -1,0 +1,17 @@
+{
+  "canisters": {
+    "bus_booking_backend": {
+      "candid": "src/bus_booking_backend/bus_booking_backend.did",
+      "package": "bus_booking_backend",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}

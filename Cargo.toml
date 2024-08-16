@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/bus_booking_backend"
+]
+resolver = "2"
