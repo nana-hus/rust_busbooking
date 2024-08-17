@@ -41,8 +41,8 @@ impl BoundedStorable for Admin {
 struct Route {
     id: u64,
     name: String,
-    admin_id: String,
-    passengers: Vec<String>,
+    admin_id: u64,
+    passengers: Vec<u64>,
     created_at: u64,
 }
 
@@ -151,7 +151,7 @@ struct AdminPayload {
 #[derive(candid::CandidType, Serialize, Deserialize)]
 struct RoutePayload {
     name: String,
-    admin_id: String,
+    admin_id: u64,
 }
 
 // Passenger Payload
@@ -241,6 +241,30 @@ enum Error {
     InvalidName { msg: String },
 }
 
+// Utility function to validate email
+fn validate_email(email: &str) -> Result<(), Error> {
+    let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
+    if !email_regex.is_match(email) {
+        Err(Error::InvalidEmail {
+            msg: "Ensure the email address is of the correct format".to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+// Utility function to validate name
+fn validate_name(name: &str) -> Result<(), Error> {
+    let name_regex = Regex::new(r"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$").unwrap();
+    if !name_regex.is_match(name) {
+        Err(Error::InvalidName {
+            msg: "Invalid name".to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
 // Function to create a route ADMIN
 #[ic_cdk::update]
 fn create_admin(payload: AdminPayload) -> Result<Admin, Error> {
@@ -251,12 +275,7 @@ fn create_admin(payload: AdminPayload) -> Result<Admin, Error> {
     }
 
     // Validate the email address
-    let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
-    if !email_regex.is_match(&payload.email) {
-        return Err(Error::InvalidEmail {
-            msg: "Ensure the email address is of the correct format".to_string(),
-        });
-    }
+    validate_email(&payload.email)?;
 
     // Ensure the email address is unique
     let email_exists = ADMIN_STORAGE.with(|storage| {
@@ -272,19 +291,10 @@ fn create_admin(payload: AdminPayload) -> Result<Admin, Error> {
     }
 
     // Validate the name
-    let name_regex = Regex::new(r"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$").unwrap();
-    if !name_regex.is_match(&payload.name) {
-        return Err(Error::InvalidName {
-            msg: "Invalid name".to_string(),
-        });
-    }
+    validate_name(&payload.name)?;
 
     // Generate unique IDs for admins
-    let id = ID_COUNTER.with(|counter| {
-        let current_value = *counter.borrow().get();
-        let _ = counter.borrow_mut().set(current_value + 1);
-        current_value + 1
-    });
+    let id = generate_unique_id();
 
     // Create a new admin
     let admin = Admin {
@@ -306,16 +316,11 @@ fn create_admin(payload: AdminPayload) -> Result<Admin, Error> {
 #[ic_cdk::update]
 fn create_route(payload: RoutePayload) -> Result<Route, Error> {
     // Validate the route name
-    let name_regex = Regex::new(r"^[a-zA-Z0-9 ]+$").unwrap();
-    if !name_regex.is_match(&payload.name) {
-        return Err(Error::InvalidName {
-            msg: "Invalid route name".to_string(),
-        });
-    }
+    validate_name(&payload.name)?;
 
     // Validate the admin ID
     let admin_exists = ADMIN_STORAGE.with(|storage| {
-        storage.borrow().contains_key(&payload.admin_id.parse::<u64>().unwrap_or(0))
+        storage.borrow().contains_key(&payload.admin_id)
     });
     if !admin_exists {
         return Err(Error::NotFound {
@@ -324,11 +329,7 @@ fn create_route(payload: RoutePayload) -> Result<Route, Error> {
     }
 
     // Generate unique IDs for routes
-    let id = ID_COUNTER.with(|counter| {
-        let current_value = *counter.borrow().get();
-        let _ = counter.borrow_mut().set(current_value + 1);
-        current_value + 1
-    });
+    let id = generate_unique_id();
 
     // Create a new route
     let route = Route {
@@ -357,12 +358,7 @@ fn create_passenger(payload: PassengerPayload) -> Result<Passenger, Error> {
     }
 
     // Validate the email address
-    let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
-    if !email_regex.is_match(&payload.email) {
-        return Err(Error::InvalidEmail {
-            msg: "Ensure the email address is of the correct format".to_string(),
-        });
-    }
+    validate_email(&payload.email)?;
 
     // Ensure the email address is unique
     let email_exists = PASSENGERS_STORAGE.with(|storage| {
@@ -378,19 +374,10 @@ fn create_passenger(payload: PassengerPayload) -> Result<Passenger, Error> {
     }
 
     // Validate the name
-    let name_regex = Regex::new(r"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$").unwrap();
-    if !name_regex.is_match(&payload.name) {
-        return Err(Error::InvalidName {
-            msg: "Invalid name".to_string(),
-        });
-    }
+    validate_name(&payload.name)?;
 
     // Generate unique IDs for passengers
-    let id = ID_COUNTER.with(|counter| {
-        let current_value = *counter.borrow().get();
-        let _ = counter.borrow_mut().set(current_value + 1);
-        current_value + 1
-    });
+    let id = generate_unique_id();
 
     // Create a new passenger
     let passenger = Passenger {
@@ -433,11 +420,7 @@ fn book_route(payload: BookingPayload) -> Result<Booking, Error> {
     }
 
     // Generate unique IDs for bookings
-    let id = ID_COUNTER.with(|counter| {
-        let current_value = *counter.borrow().get();
-        let _ = counter.borrow_mut().set(current_value + 1);
-        current_value + 1
-    });
+    let id = generate_unique_id();
 
     // Create a new booking
     let booking = Booking {
@@ -480,11 +463,7 @@ fn propose_route(payload: ProposalPayload) -> Result<Proposal, Error> {
     }
 
     // Generate unique IDs for proposals
-    let id = ID_COUNTER.with(|counter| {
-        let current_value = *counter.borrow().get();
-        let _ = counter.borrow_mut().set(current_value + 1);
-        current_value + 1
-    });
+    let id = generate_unique_id();
 
     // Create a new proposal
     let proposal = Proposal {
@@ -561,14 +540,14 @@ fn add_passenger_to_route(payload: AddPassengerToRoutePayload) -> Result<(), Err
     }
 
     // Ensure the passenger is not already on the route
-    if route.passengers.contains(&payload.passenger_id.to_string()) {
+    if route.passengers.contains(&payload.passenger_id) {
         return Err(Error::AlreadyExists {
             msg: "Passenger is already on this route".to_string(),
         });
     }
 
     // Add the passenger to the route
-    route.passengers.push(payload.passenger_id.to_string());
+    route.passengers.push(payload.passenger_id);
 
     // Store the updated route
     ROUTES_STORAGE.with(|storage| {
@@ -576,6 +555,15 @@ fn add_passenger_to_route(payload: AddPassengerToRoutePayload) -> Result<(), Err
     });
 
     Ok(())
+}
+
+// Utility function to generate unique IDs
+fn generate_unique_id() -> u64 {
+    ID_COUNTER.with(|counter| {
+        let current_value = *counter.borrow().get();
+        let _ = counter.borrow_mut().set(current_value + 1);
+        current_value + 1
+    })
 }
 
 ic_cdk::export_candid!();
