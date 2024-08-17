@@ -59,12 +59,12 @@ type Result_4 = variant { Ok : Route; Err : Error };
 type Result_5 = variant { Ok : Proposal; Err : Error };
 type Route = record {
   id : nat64;
-  admin_id : text;
+  admin_id : nat64;
   name : text;
   created_at : nat64;
-  passengers : vec text;
+  passengers : vec nat64;
 };
-type RoutePayload = record { admin_id : text; name : text };
+type RoutePayload = record { admin_id : nat64; name : text };
 type VotePayload = record {
   vote : bool;
   proposal_id : nat64;
