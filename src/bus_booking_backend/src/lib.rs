@@ -235,6 +235,7 @@ enum Error {
     UnAuthorized { msg: String },
     NotFound { msg: String },
     EmptyFields { msg: String },
+    InvalidAdminId { msg: String },
     NotRoutePassenger { msg: String },
     AlreadyExists { msg: String },
     InvalidEmail { msg: String },
@@ -251,7 +252,12 @@ fn create_admin(payload: AdminPayload) -> Result<Admin, Error> {
     }
 
     // Validate the email address
-    let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
+    let email_regex =
+        Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").map_err(|_| {
+            Error::InvalidEmail {
+                msg: "Failed to create email regex".to_string(),
+            }
+        })?;
     if !email_regex.is_match(&payload.email) {
         return Err(Error::InvalidEmail {
             msg: "Ensure the email address is of the correct format".to_string(),
@@ -272,7 +278,11 @@ fn create_admin(payload: AdminPayload) -> Result<Admin, Error> {
     }
 
     // Validate the name
-    let name_regex = Regex::new(r"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$").unwrap();
+    let name_regex = Regex::new(r"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$").map_err(|_| {
+        Error::InvalidName {
+            msg: "Failed to create name regex".to_string(),
+        }
+    })?;
     if !name_regex.is_match(&payload.name) {
         return Err(Error::InvalidName {
             msg: "Invalid name".to_string(),
@@ -293,20 +303,30 @@ fn create_admin(payload: AdminPayload) -> Result<Admin, Error> {
         email: payload.email,
         created_at: time(),
     };
-
+    
     // Store the new admin
     ADMIN_STORAGE.with(|storage| {
-        storage.borrow_mut().insert(id, admin.clone()).unwrap();
+        match storage.borrow_mut().insert(id, admin.clone()) {
+            Some(_) => {
+                ic_cdk::println!("Replaced an existing admin with ID: {}", id);
+            },
+            None => {
+                ic_cdk::println!("Inserted new admin with ID: {}", id);
+            },
+        }
     });
 
     Ok(admin)
 }
-
 // Function to create a route
 #[ic_cdk::update]
 fn create_route(payload: RoutePayload) -> Result<Route, Error> {
     // Validate the route name
-    let name_regex = Regex::new(r"^[a-zA-Z0-9 ]+$").unwrap();
+    let name_regex = Regex::new(r"^[a-zA-Z0-9 ]+$").map_err(|_| {
+        Error::InvalidName {
+            msg: "Failed to create name regex".to_string(),
+        }
+    })?;
     if !name_regex.is_match(&payload.name) {
         return Err(Error::InvalidName {
             msg: "Invalid route name".to_string(),
@@ -314,8 +334,12 @@ fn create_route(payload: RoutePayload) -> Result<Route, Error> {
     }
 
     // Validate the admin ID
+    let admin_id = payload.admin_id.parse::<u64>().map_err(|_| Error::InvalidAdminId {
+        msg: "Invalid admin ID format".to_string(),
+    })?;
+    
     let admin_exists = ADMIN_STORAGE.with(|storage| {
-        storage.borrow().contains_key(&payload.admin_id.parse::<u64>().unwrap_or(0))
+        storage.borrow().contains_key(&admin_id)
     });
     if !admin_exists {
         return Err(Error::NotFound {
@@ -341,7 +365,14 @@ fn create_route(payload: RoutePayload) -> Result<Route, Error> {
 
     // Store the new route
     ROUTES_STORAGE.with(|storage| {
-        storage.borrow_mut().insert(id, route.clone()).unwrap();
+        match storage.borrow_mut().insert(id, route.clone()) {
+            Some(_) => {
+                ic_cdk::println!("Replaced an existing route with ID: {}", id);
+            },
+            None => {
+                ic_cdk::println!("Inserted new route with ID: {}", id);
+            },
+        }
     });
 
     Ok(route)
@@ -357,7 +388,11 @@ fn create_passenger(payload: PassengerPayload) -> Result<Passenger, Error> {
     }
 
     // Validate the email address
-    let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
+    let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").map_err(|_| {
+        Error::InvalidEmail {
+            msg: "Failed to create email regex".to_string(),
+        }
+    })?;
     if !email_regex.is_match(&payload.email) {
         return Err(Error::InvalidEmail {
             msg: "Ensure the email address is of the correct format".to_string(),
@@ -378,7 +413,11 @@ fn create_passenger(payload: PassengerPayload) -> Result<Passenger, Error> {
     }
 
     // Validate the name
-    let name_regex = Regex::new(r"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$").unwrap();
+    let name_regex = Regex::new(r"^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$").map_err(|_| {
+        Error::InvalidName {
+            msg: "Failed to create name regex".to_string(),
+        }
+    })?;
     if !name_regex.is_match(&payload.name) {
         return Err(Error::InvalidName {
             msg: "Invalid name".to_string(),
@@ -403,7 +442,14 @@ fn create_passenger(payload: PassengerPayload) -> Result<Passenger, Error> {
 
     // Store the new passenger
     PASSENGERS_STORAGE.with(|storage| {
-        storage.borrow_mut().insert(id, passenger.clone()).unwrap();
+        match storage.borrow_mut().insert(id, passenger.clone()) {
+            Some(_) => {
+                ic_cdk::println!("Replaced an existing passenger with ID: {}", id);
+            },
+            None => {
+                ic_cdk::println!("Inserted new passenger with ID: {}", id);
+            },
+        }
     });
 
     Ok(passenger)
@@ -413,9 +459,8 @@ fn create_passenger(payload: PassengerPayload) -> Result<Passenger, Error> {
 #[ic_cdk::update]
 fn book_route(payload: BookingPayload) -> Result<Booking, Error> {
     // Validate the route ID
-    let route_exists = ROUTES_STORAGE.with(|storage| {
-        storage.borrow().contains_key(&payload.route_id)
-    });
+    let route_exists =
+        ROUTES_STORAGE.with(|storage| storage.borrow().contains_key(&payload.route_id));
     if !route_exists {
         return Err(Error::NotFound {
             msg: "Route not found".to_string(),
@@ -423,9 +468,8 @@ fn book_route(payload: BookingPayload) -> Result<Booking, Error> {
     }
 
     // Validate the passenger ID
-    let passenger_exists = PASSENGERS_STORAGE.with(|storage| {
-        storage.borrow().contains_key(&payload.passenger_id)
-    });
+    let passenger_exists =
+        PASSENGERS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.passenger_id));
     if !passenger_exists {
         return Err(Error::NotFound {
             msg: "Passenger not found".to_string(),
@@ -460,9 +504,8 @@ fn book_route(payload: BookingPayload) -> Result<Booking, Error> {
 #[ic_cdk::update]
 fn propose_route(payload: ProposalPayload) -> Result<Proposal, Error> {
     // Validate the route ID
-    let route_exists = ROUTES_STORAGE.with(|storage| {
-        storage.borrow().contains_key(&payload.route_id)
-    });
+    let route_exists =
+        ROUTES_STORAGE.with(|storage| storage.borrow().contains_key(&payload.route_id));
     if !route_exists {
         return Err(Error::NotFound {
             msg: "Route not found".to_string(),
@@ -470,9 +513,8 @@ fn propose_route(payload: ProposalPayload) -> Result<Proposal, Error> {
     }
 
     // Validate the proposer ID
-    let proposer_exists = PASSENGERS_STORAGE.with(|storage| {
-        storage.borrow().contains_key(&payload.proposer_id)
-    });
+    let proposer_exists =
+        PASSENGERS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.proposer_id));
     if !proposer_exists {
         return Err(Error::NotFound {
             msg: "Proposer not found".to_string(),
@@ -510,15 +552,17 @@ fn propose_route(payload: ProposalPayload) -> Result<Proposal, Error> {
 fn vote_on_proposal(payload: VotePayload) -> Result<(), Error> {
     // Validate the proposal ID
     let mut proposal = PROPOSALS_STORAGE.with(|storage| {
-        storage.borrow_mut().get(&payload.proposal_id).ok_or(Error::NotFound {
-            msg: "Proposal not found".to_string(),
-        })
+        storage
+            .borrow_mut()
+            .get(&payload.proposal_id)
+            .ok_or(Error::NotFound {
+                msg: "Proposal not found".to_string(),
+            })
     })?;
 
     // Validate the passenger ID
-    let passenger_exists = PASSENGERS_STORAGE.with(|storage| {
-        storage.borrow().contains_key(&payload.passenger_id)
-    });
+    let passenger_exists =
+        PASSENGERS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.passenger_id));
     if !passenger_exists {
         return Err(Error::NotFound {
             msg: "Passenger not found".to_string(),
@@ -534,7 +578,10 @@ fn vote_on_proposal(payload: VotePayload) -> Result<(), Error> {
 
     // Store the updated proposal
     PROPOSALS_STORAGE.with(|storage| {
-        storage.borrow_mut().insert(proposal.id, proposal.clone()).unwrap();
+        storage
+            .borrow_mut()
+            .insert(proposal.id, proposal.clone())
+            .unwrap();
     });
 
     Ok(())
@@ -545,15 +592,17 @@ fn vote_on_proposal(payload: VotePayload) -> Result<(), Error> {
 fn add_passenger_to_route(payload: AddPassengerToRoutePayload) -> Result<(), Error> {
     // Validate the route ID
     let mut route = ROUTES_STORAGE.with(|storage| {
-        storage.borrow_mut().get(&payload.route_id).ok_or(Error::NotFound {
-            msg: "Route not found".to_string(),
-        })
+        storage
+            .borrow_mut()
+            .get(&payload.route_id)
+            .ok_or(Error::NotFound {
+                msg: "Route not found".to_string(),
+            })
     })?;
 
     // Validate the passenger ID
-    let passenger_exists = PASSENGERS_STORAGE.with(|storage| {
-        storage.borrow().contains_key(&payload.passenger_id)
-    });
+    let passenger_exists =
+        PASSENGERS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.passenger_id));
     if !passenger_exists {
         return Err(Error::NotFound {
             msg: "Passenger not found".to_string(),
@@ -572,7 +621,10 @@ fn add_passenger_to_route(payload: AddPassengerToRoutePayload) -> Result<(), Err
 
     // Store the updated route
     ROUTES_STORAGE.with(|storage| {
-        storage.borrow_mut().insert(route.id, route.clone()).unwrap();
+        storage
+            .borrow_mut()
+            .insert(route.id, route.clone())
+            .unwrap();
     });
 
     Ok(())
